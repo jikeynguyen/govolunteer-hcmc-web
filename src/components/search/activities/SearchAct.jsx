@@ -1,92 +1,85 @@
-import React, { useState, useEffect } from 'react'
-import { Button, InputLabel } from '@mui/material'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
-import actAPI from '../../../API/activities/actAPI'
-import ActResults from '../../tables/activities/ActResults'
-import SearchLoading from '../../loading/SearchLoading'
-import styles from '../../../Style'
+import React, { useState } from "react";
+import SearchLoading from "../../loading/SearchLoading";
+import { Button, InputLabel } from "@mui/material";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faInbox } from "@fortawesome/free-solid-svg-icons";
+import ActResults from "../../tables/activities/ActResults";
+
+import styles from "../../../Style";
+
 
 const SearchAct = () => {
-  const [result, setResult] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [inputValue, setInputValue] = useState('')
-  const [showResults, setShowResults] = useState(false)
-  const [isInputFocused, setIsInputFocused] = useState(false)
-  const MSSVmaxlength = 11
-  const handleInputChange = (event) => {
-    const value = event.target.value
-    if (value.length <= MSSVmaxlength) {
-      setInputValue(value.toUpperCase())
+  const [fullName, setFullName] = useState("");
+  const [citizenId, setCitizenId] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [activities, setActivities] = useState([]);
+  const [error, setError] = useState(null);
+  const [searched, setSearched] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!fullName || !citizenId) return;
+    setIsLoading(true);
+    setError(null);
+    setActivities([]);
+    setSearched(true);
+    try {
+      const response = await fetch("https://api-govolunteer.onrender.com/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, citizenId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Không thể tra cứu.");
+      setActivities(data.activities || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleSearchClick = () => {
-    if (inputValue === '') {
-      setShowResults(false)
-      return
-    }
-    setIsLoading(true)
-    actAPI.getByStudentID(inputValue).then((response) => {
-      setResult(response)
-    })
-      .catch((error) => {
-        console.log(error)
-      })
-      .finally(() => {
-        setIsLoading(false)
-        setShowResults(true)
-      })
-  }
-
-  useEffect(() => {}, [showResults])
-
-  const handleFormSubmit = (event) => {
-    event.preventDefault()
-    handleSearchClick()
-  }
-
-  const inputStyle = {...styles.customInput, ...(isInputFocused ? styles.customInputFocused : {})}
-  const buttonStyle = {
-    ...styles.button,
-    backgroundColor: inputValue.length !== MSSVmaxlength ? 'gray' : styles.button.backgroundColor,
-    color: inputValue.length !== MSSVmaxlength ? 'lightgray' : styles.button.color,
-    cursor: inputValue.length !== MSSVmaxlength ? 'not-allowed' : 'pointer'
-  }
   return (
     <div>
-      <form onSubmit={handleFormSubmit}>
+      <form onSubmit={handleSubmit}>
         <div style={styles.formLabel}>
-          <div style={{width: '100%'}}>
-            <InputLabel style={ styles.customInputLabel }>Nhập MSSV</InputLabel>
-          </div>
-          <div style={{width: '100%'}}>
-            <input
-              style={inputStyle}
-              type="text"
-              value={inputValue}
-              onChange={handleInputChange}
-              maxLength={MSSVmaxlength}
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => setIsInputFocused(false)}
-            />
-          </div>
+          <InputLabel style={styles.customInputLabel}>Họ và Tên</InputLabel>
+          <input
+            style={styles.customInput}
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
+        </div>
+        <div style={styles.formLabel}>
+          <InputLabel style={styles.customInputLabel}>CCCD</InputLabel>
+          <input
+            style={styles.customInput}
+            type="text"
+            value={citizenId}
+            onChange={(e) => setCitizenId(e.target.value)}
+          />
         </div>
         <div style={styles.buttonContainer}>
           <Button
             type="submit"
             variant="contained"
             size="large"
-            style={buttonStyle}
-            disabled={inputValue.length !== MSSVmaxlength}
+            style={styles.button}
+            disabled={!fullName || !citizenId}
           >
-            <FontAwesomeIcon style={styles.icon} icon={faMagnifyingGlass} flip/>Tra cứu
+            <FontAwesomeIcon style={styles.icon} icon={faInbox} beatFade /> Tra cứu
           </Button>
         </div>
       </form>
-      {isLoading ? (<SearchLoading />) : (showResults && <ActResults results={result} />)}
-    </div>
-  )
-}
 
-export default SearchAct
+      {isLoading ? (
+        <SearchLoading />
+      ) : (
+        <ActResults activities={activities} error={error} searched={searched} />
+      )}
+    </div>
+  );
+};
+
+export default SearchAct;

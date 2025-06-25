@@ -1,103 +1,84 @@
-import React, { useState, useEffect } from 'react'
-import { Button, InputLabel, Alert } from '@mui/material'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faInbox } from '@fortawesome/free-solid-svg-icons'
-import certiStudentsAPI from '../../../API/certificates/certiStudentsAPI'
-import certiListAPI from '../../../API/certificates/certiListAPI'
-import CertiResults from '../../tables/certificates/CertiResults'
-import SearchLoading from '../../loading/SearchLoading'
-import styles from '../../../Style'
+import React, { useState } from "react";
+import { Button, InputLabel } from "@mui/material";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faInbox } from "@fortawesome/free-solid-svg-icons";
+import CertiResults from "../../tables/certificates/CertiResults";
+import SearchLoading from "../../loading/SearchLoading";
+import lookupAPI from "../../../API/lookupAPI";
+import styles from "../../../Style";
 
 const SearchCerti = () => {
-  const [studentActs, setStudentActs] = useState([])
-  const [certiList, setCertiList] = useState([])
-  const [isInputFocused, setIsInputFocused] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [resultsLoading, setResultsLoading] = useState(false)
-  const [showStudentActs, setShowStudentActs] = useState(false)
-  const [inputValue, setInputValue] = useState('')
-  const MSSVmaxlength = 11
-  const handleInputChange = (event) => {
-    const value = event.target.value
-    if (value.length <= MSSVmaxlength) {
-      setInputValue(value.toUpperCase())
+  const [fullName, setFullName] = useState("");
+  const [citizenId, setCitizenId] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [certificates, setCertificates] = useState([]);
+  const [error, setError] = useState(null);
+  const [searched, setSearched] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!fullName || !citizenId) return;
+    setIsLoading(true);
+    setError(null);
+    setCertificates([]);
+    setSearched(true);
+    try {
+      const response = await lookupAPI.searchCertificates(fullName, citizenId);
+      setCertificates(response);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
-  }
-  const handleSearchClick = () => {
-    if (inputValue === '') {
-      setShowStudentActs(false)
-      return
-    }
-    setIsLoading(true)
-    setResultsLoading(true)
-    Promise.all([certiListAPI.getCertiID(inputValue), certiStudentsAPI.getByStudentID(inputValue)])
-      .then(([certiListResponse, studentActsResponse]) => {
-        setCertiList(certiListResponse)
-        setStudentActs(studentActsResponse)
-      })
-      .catch((error) => {
-        console.log(error)
-      })
-      .finally(() => {
-        setIsLoading(false)
-        setResultsLoading(false)
-        setShowStudentActs(true)
-      })
-  }
+  };
 
-  useEffect(() => {}, [showStudentActs])
-
-  const handleFormSubmit = (event) => {
-    event.preventDefault()
-    handleSearchClick()
-  }
-
-  const inputStyle = {...styles.customInput, ...(isInputFocused ? styles.customInputFocused : {})}
-  const buttonStyle = {
-    ...styles.button,
-    backgroundColor: inputValue.length !== MSSVmaxlength ? 'gray' : styles.button.backgroundColor,
-    color: inputValue.length !== MSSVmaxlength ? 'lightgray' : styles.button.color,
-    cursor: inputValue.length !== MSSVmaxlength ? 'not-allowed' : 'pointer'
-  }
-    return (
+  return (
     <div>
-      <form onSubmit={handleFormSubmit}>
-        <div style={{paddingBottom: '16px'}}>
-            <Alert variant="filled" severity="info" style={styles.notiBg}>
-              Lưu ý: Hệ thống hiển thị giấy chứng nhận cấp online từ năm học 2024 - 2025
-            </Alert>
-          </div>
+      <form onSubmit={handleSubmit}>
         <div style={styles.formLabel}>
-          <div style={{width: '100%'}}>
-            <InputLabel style={styles.customInputLabel}>Nhập MSSV</InputLabel>
-          </div>
-          <div>
-            <input
-              style={inputStyle}
-              type="text"
-              value={inputValue}
-              onChange={handleInputChange}
-              maxLength={MSSVmaxlength}
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => setIsInputFocused(false)}
-            />
-          </div>
+          <InputLabel style={styles.customInputLabel}>Họ và Tên</InputLabel>
+          <input
+            style={styles.customInput}
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
+        </div>
+        <div style={styles.formLabel}>
+          <InputLabel style={styles.customInputLabel}>CCCD</InputLabel>
+          <input
+            style={styles.customInput}
+            type="text"
+            value={citizenId}
+            onChange={(e) => setCitizenId(e.target.value)}
+          />
         </div>
         <div style={styles.buttonContainer}>
           <Button
             type="submit"
             variant="contained"
             size="large"
-            style={buttonStyle}
-            disabled={inputValue.length !== MSSVmaxlength}
+            style={styles.button}
+            disabled={!fullName || !citizenId}
           >
-            <FontAwesomeIcon style={styles.icon} icon={faInbox} beatFade/>Yêu cầu giấy
+            <FontAwesomeIcon style={styles.icon} icon={faInbox} beatFade /> Tra cứu
           </Button>
         </div>
       </form>
-      {isLoading ? (<SearchLoading />) : (showStudentActs && <CertiResults studentActs={studentActs} certiList={certiList} isLoading={resultsLoading}/>)}
-    </div>
-  )
-}
 
-export default SearchCerti
+      {isLoading ? (
+        <SearchLoading />
+      ) : (
+        <CertiResults certificates={certificates} error={error} />
+      )}
+
+      {searched && !isLoading && !certificates.length && !error && (
+        <div style={styles.notFoundContainer}>
+          <span style={styles.notFoundText}>Không tìm thấy chứng nhận</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SearchCerti;
